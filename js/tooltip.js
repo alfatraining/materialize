@@ -1,10 +1,10 @@
 (function ($) {
     $.fn.tooltip = function (options) {
-        var timeout = null,
-        margin = 5;
+      var timeout = null;
 
       // Defaults
       var defaults = {
+        margin: 5,
         delay: 350
       };
 
@@ -38,12 +38,15 @@
         backdrop.appendTo(newTooltip);
         backdrop.css({ top: 0, left:0 });
 
-
+      var attachToElement = origin;
+      if (origin.data("target") === "parent") {
+        attachToElement = origin.parent();
+      }
       //Destroy previously binded events
-      origin.off('mouseenter.tooltip mouseleave.tooltip');
+      attachToElement.off('mouseenter.tooltip mouseleave.tooltip');
       // Mouse In
       var started = false, timeoutRef;
-      origin.on({
+      attachToElement.on({
         'mouseenter.tooltip': function(e) {
           var tooltip_delay = origin.attr('data-delay');
           tooltip_delay = (tooltip_delay === undefined || tooltip_delay === '') ?
@@ -58,9 +61,9 @@
             newTooltip.children('span').text(origin.attr('data-tooltip'));
 
             // Tooltip positioning
-            var originWidth = origin.outerWidth();
-            var originHeight = origin.outerHeight();
-            var tooltipPosition =  origin.attr('data-position');
+            var originWidth = attachToElement.outerWidth();
+            var originHeight = attachToElement.outerHeight();
+            var tooltipPosition = origin.attr('data-position');
             var tooltipHeight = newTooltip.outerHeight();
             var tooltipWidth = newTooltip.outerWidth();
             var tooltipVerticalMovement = '0px';
@@ -70,8 +73,8 @@
 
             if (tooltipPosition === "top") {
               // Top Position
-              targetTop = origin.offset().top - tooltipHeight - margin;
-              targetLeft = origin.offset().left + originWidth/2 - tooltipWidth/2;
+              targetTop = attachToElement.offset().top - tooltipHeight - options.margin;
+              targetLeft = attachToElement.offset().left + originWidth/2 - tooltipWidth/2;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
 
               tooltipVerticalMovement = '-10px';
@@ -84,8 +87,8 @@
             }
             // Left Position
             else if (tooltipPosition === "left") {
-              targetTop = origin.offset().top + originHeight/2 - tooltipHeight/2;
-              targetLeft =  origin.offset().left - tooltipWidth - margin;
+              targetTop = attachToElement.offset().top + originHeight/2 - tooltipHeight/2;
+              targetLeft =  attachToElement.offset().left - tooltipWidth - options.margin;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
 
               tooltipHorizontalMovement = '-10px';
@@ -100,8 +103,8 @@
             }
             // Right Position
             else if (tooltipPosition === "right") {
-              targetTop = origin.offset().top + originHeight/2 - tooltipHeight/2;
-              targetLeft = origin.offset().left + originWidth + margin;
+              targetTop = attachToElement.offset().top + originHeight/2 - tooltipHeight/2;
+              targetLeft = attachToElement.offset().left + originWidth + options.margin;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
 
               tooltipHorizontalMovement = '+10px';
@@ -116,8 +119,8 @@
             }
             else {
               // Bottom Position
-              targetTop = origin.offset().top + origin.outerHeight() + margin;
-              targetLeft = origin.offset().left + originWidth/2 - tooltipWidth/2;
+              targetTop = attachToElement.offset().top + attachToElement.outerHeight() + options.margin;
+              targetLeft = attachToElement.offset().left + originWidth/2 - tooltipWidth/2;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
               tooltipVerticalMovement = '+10px';
               backdrop.css({
