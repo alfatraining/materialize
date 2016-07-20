@@ -26,7 +26,13 @@
         origin.attr('data-tooltip-id', tooltipId);
 
         // Create Text span
-        var tooltip_text = $('<span></span>').text(origin.attr('data-tooltip'));
+        var tooltip_text;
+
+        if (origin.data("allow-html")) {
+          tooltip_text = $(origin.attr('data-tooltip')).wrap("<span></span>");
+        } else {
+          tooltip_text = $("<span></span>").text(origin.attr('data-tooltip'));
+        }
 
         // Create tooltip
         var newTooltip = $('<div></div>');
