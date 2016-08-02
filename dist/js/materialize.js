@@ -1365,7 +1365,9 @@ $(document).ready(function(){
         // Create Text span
         var tooltip_text;
 
-        if (origin.data("allow-html")) {
+        if (origin.data("data-tooltip")) {
+          tooltip_text = origin.data("data-tooltip").wrap("<span></span>");
+        } else if (origin.data("allow-html")) {
           tooltip_text = $(origin.attr('data-tooltip')).wrap("<span></span>");
         } else {
           tooltip_text = $("<span></span>").text(origin.attr('data-tooltip'));
