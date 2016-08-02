@@ -48,9 +48,13 @@
           tooltipPosition = origin.attr('data-position');
           tooltipPosition = (tooltipPosition === undefined || tooltipPosition === '') ?
               options.position : tooltipPosition;
-          tooltipText = origin.attr('data-tooltip');
-          tooltipText = (tooltipText === undefined || tooltipText === '') ?
-              options.tooltip : tooltipText;
+          if (origin.data("data-tooltip")) {
+            tooltipText = origin.data("data-tooltip").wrap("<span></span>");
+          } else {
+            tooltipText = origin.attr('data-tooltip');
+            tooltipText = (tooltipText === undefined || tooltipText === '') ?
+                options.tooltip : tooltipText;
+          }
         };
         setAttributes();
 
