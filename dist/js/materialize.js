@@ -1468,7 +1468,7 @@ $(document).ready(function(){
           tooltipPosition = (tooltipPosition === undefined || tooltipPosition === '') ?
               options.position : tooltipPosition;
           if (origin.data("data-tooltip")) {
-            tooltipText = origin.data("data-tooltip").wrap("<span></span>");
+            tooltipText = origin.data("data-tooltip");
           } else {
             tooltipText = origin.attr('data-tooltip');
             tooltipText = (tooltipText === undefined || tooltipText === '') ?
@@ -1481,9 +1481,11 @@ $(document).ready(function(){
           var tooltip = $('<div class="material-tooltip"></div>');
 
           // Create Text span
-          if (allowHtml) {
+          if (tooltipText.jquery) {
+            tooltipText = $('<span></span>').append(tooltipText);
+          } else if (allowHtml) {
             tooltipText = $('<span></span>').html(tooltipText);
-          } else{
+          } else {
             tooltipText = $('<span></span>').text(tooltipText);
           }
 
