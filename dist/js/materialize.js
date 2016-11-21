@@ -353,6 +353,61 @@ Materialize.elementOrParentIsFixed = function(element) {
     return isFixed;
 };
 
+
+/**
+ * Get time in ms
+ * @license https://raw.github.com/jashkenas/underscore/master/LICENSE
+ * @type {function}
+ * @return {number}
+ */
+var getTime = (Date.now || function () {
+  return new Date().getTime();
+});
+
+
+/**
+ * Returns a function, that, when invoked, will only be triggered at most once
+ * during a given window of time. Normally, the throttled function will run
+ * as much as it can, without ever going more than once per `wait` duration;
+ * but if you'd like to disable the execution on the leading edge, pass
+ * `{leading: false}`. To disable execution on the trailing edge, ditto.
+ * @license https://raw.github.com/jashkenas/underscore/master/LICENSE
+ * @param {function} func
+ * @param {number} wait
+ * @param {Object=} options
+ * @returns {Function}
+ */
+Materialize.throttle = function(func, wait, options) {
+  var context, args, result;
+  var timeout = null;
+  var previous = 0;
+  options || (options = {});
+  var later = function () {
+    previous = options.leading === false ? 0 : getTime();
+    timeout = null;
+    result = func.apply(context, args);
+    context = args = null;
+  };
+  return function () {
+    var now = getTime();
+    if (!previous && options.leading === false) previous = now;
+    var remaining = wait - (now - previous);
+    context = this;
+    args = arguments;
+    if (remaining <= 0) {
+      clearTimeout(timeout);
+      timeout = null;
+      previous = now;
+      result = func.apply(context, args);
+      context = args = null;
+    } else if (!timeout && options.trailing !== false) {
+      timeout = setTimeout(later, remaining);
+    }
+    return result;
+  };
+};
+
+
 // Velocity has conflicts when loaded with jQuery, this will check for it
 // First, check if in noConflict mode
 var Vel;
@@ -1048,7 +1103,11 @@ if (jQuery) {
         }
 
         // Set css on origin
-        origin.css({position: 'absolute', 'z-index': 1000})
+        origin.css({
+          position: 'absolute',
+          'z-index': 1000,
+          'will-change': 'left, top, width, height'
+        })
         .data('width', originalWidth)
         .data('height', originalHeight);
 
@@ -1216,7 +1275,8 @@ if (jQuery) {
                 width: '',
                 'max-width': '',
                 position: '',
-                'z-index': ''
+                'z-index': '',
+                'will-change': ''
               });
 
               // Remove class
@@ -1464,11 +1524,11 @@ $(document).ready(function(){
 }( jQuery ));
 ;(function ($) {
     $.fn.tooltip = function (options) {
-      var timeout = null,
-      margin = 5;
+      var timeout = null;
 
       // Defaults
       var defaults = {
+        margin: 5,
         delay: 350,
         tooltip: '',
         position: 'bottom',
@@ -1512,9 +1572,13 @@ $(document).ready(function(){
           tooltipPosition = origin.attr('data-position');
           tooltipPosition = (tooltipPosition === undefined || tooltipPosition === '') ?
               options.position : tooltipPosition;
-          tooltipText = origin.attr('data-tooltip');
-          tooltipText = (tooltipText === undefined || tooltipText === '') ?
-              options.tooltip : tooltipText;
+          if (origin.data("data-tooltip")) {
+            tooltipText = origin.data("data-tooltip");
+          } else {
+            tooltipText = origin.attr('data-tooltip');
+            tooltipText = (tooltipText === undefined || tooltipText === '') ?
+                options.tooltip : tooltipText;
+          }
         };
         setAttributes();
 
@@ -1522,9 +1586,11 @@ $(document).ready(function(){
           var tooltip = $('<div class="material-tooltip"></div>');
 
           // Create Text span
-          if (allowHtml) {
+          if (tooltipText.jquery) {
+            tooltipText = $('<span></span>').append(tooltipText);
+          } else if (allowHtml) {
             tooltipText = $('<span></span>').html(tooltipText);
-          } else{
+          } else {
             tooltipText = $('<span></span>').text(tooltipText);
           }
 
@@ -1540,11 +1606,16 @@ $(document).ready(function(){
         };
         tooltipEl = renderTooltipEl();
 
+        var attachToElement = origin;
+        if (origin.data("target") === "parent") {
+          attachToElement = origin.parent();
+        }
+
         // Destroy previously binded events
-        origin.off('mouseenter.tooltip mouseleave.tooltip');
+        attachToElement.off('mouseenter.tooltip mouseleave.tooltip');
         // Mouse In
         var started = false, timeoutRef;
-        origin.on({'mouseenter.tooltip': function(e) {
+        attachToElement.on({'mouseenter.tooltip': function(e) {
           var showTooltip = function() {
             setAttributes();
             started = true;
@@ -1553,9 +1624,9 @@ $(document).ready(function(){
             tooltipEl.css({ display: 'block', left: '0px', top: '0px' });
 
             // Tooltip positioning
-            var originWidth = origin.outerWidth();
-            var originHeight = origin.outerHeight();
-
+            var originWidth = attachToElement.outerWidth();
+            var originHeight = attachToElement.outerHeight();
+            //var tooltipPosition = origin.attr('data-position'); // [dl] - this moved up there, check
             var tooltipHeight = tooltipEl.outerHeight();
             var tooltipWidth = tooltipEl.outerWidth();
             var tooltipVerticalMovement = '0px';
@@ -1566,8 +1637,8 @@ $(document).ready(function(){
 
             if (tooltipPosition === "top") {
               // Top Position
-              targetTop = origin.offset().top - tooltipHeight - margin;
-              targetLeft = origin.offset().left + originWidth/2 - tooltipWidth/2;
+              targetTop = attachToElement.offset().top - tooltipHeight - options.margin;
+              targetLeft = attachToElement.offset().left + originWidth/2 - tooltipWidth/2;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
 
               tooltipVerticalMovement = '-10px';
@@ -1582,8 +1653,8 @@ $(document).ready(function(){
             }
             // Left Position
             else if (tooltipPosition === "left") {
-              targetTop = origin.offset().top + originHeight/2 - tooltipHeight/2;
-              targetLeft =  origin.offset().left - tooltipWidth - margin;
+              targetTop = attachToElement.offset().top + originHeight/2 - tooltipHeight/2;
+              targetLeft =  attachToElement.offset().left - tooltipWidth - options.margin;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
 
               tooltipHorizontalMovement = '-10px';
@@ -1600,8 +1671,8 @@ $(document).ready(function(){
             }
             // Right Position
             else if (tooltipPosition === "right") {
-              targetTop = origin.offset().top + originHeight/2 - tooltipHeight/2;
-              targetLeft = origin.offset().left + originWidth + margin;
+              targetTop = attachToElement.offset().top + originHeight/2 - tooltipHeight/2;
+              targetLeft = attachToElement.offset().left + originWidth + options.margin;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
 
               tooltipHorizontalMovement = '+10px';
@@ -1618,8 +1689,8 @@ $(document).ready(function(){
             }
             else {
               // Bottom Position
-              targetTop = origin.offset().top + origin.outerHeight() + margin;
-              targetLeft = origin.offset().left + originWidth/2 - tooltipWidth/2;
+              targetTop = attachToElement.offset().top + attachToElement.outerHeight() + options.margin;
+              targetLeft = attachToElement.offset().left + originWidth/2 - tooltipWidth/2;
               newCoordinates = repositionWithinScreen(targetLeft, targetTop, tooltipWidth, tooltipHeight);
               tooltipVerticalMovement = '+10px';
               backdrop.css({
@@ -2650,57 +2721,6 @@ $(document).ready(function(){
 		jWindow.trigger('scrollSpy:winSize');
 	}
 
-	/**
-	 * Get time in ms
-   * @license https://raw.github.com/jashkenas/underscore/master/LICENSE
-	 * @type {function}
-	 * @return {number}
-	 */
-	var getTime = (Date.now || function () {
-		return new Date().getTime();
-	});
-
-	/**
-	 * Returns a function, that, when invoked, will only be triggered at most once
-	 * during a given window of time. Normally, the throttled function will run
-	 * as much as it can, without ever going more than once per `wait` duration;
-	 * but if you'd like to disable the execution on the leading edge, pass
-	 * `{leading: false}`. To disable execution on the trailing edge, ditto.
-	 * @license https://raw.github.com/jashkenas/underscore/master/LICENSE
-	 * @param {function} func
-	 * @param {number} wait
-	 * @param {Object=} options
-	 * @returns {Function}
-	 */
-	function throttle(func, wait, options) {
-		var context, args, result;
-		var timeout = null;
-		var previous = 0;
-		options || (options = {});
-		var later = function () {
-			previous = options.leading === false ? 0 : getTime();
-			timeout = null;
-			result = func.apply(context, args);
-			context = args = null;
-		};
-		return function () {
-			var now = getTime();
-			if (!previous && options.leading === false) previous = now;
-			var remaining = wait - (now - previous);
-			context = this;
-			args = arguments;
-			if (remaining <= 0) {
-				clearTimeout(timeout);
-				timeout = null;
-				previous = now;
-				result = func.apply(context, args);
-				context = args = null;
-			} else if (!timeout && options.trailing !== false) {
-				timeout = setTimeout(later, remaining);
-			}
-			return result;
-		};
-	};
 
 	/**
 	 * Enables ScrollSpy using a selector
@@ -2738,7 +2758,7 @@ $(document).ready(function(){
 		offset.bottom = options.offsetBottom || 0;
 		offset.left = options.offsetLeft || 0;
 
-		var throttledScroll = throttle(function() {
+		var throttledScroll = Materialize.throttle(function() {
 			onScroll(options.scrollOffset);
 		}, options.throttle || 100);
 		var readyScroll = function(){
@@ -2808,7 +2828,7 @@ $(document).ready(function(){
 		options = options || {
 			throttle: 100
 		};
-		return jWindow.on('resize', throttle(onWinSize, options.throttle || 100));
+		return jWindow.on('resize', Materialize.throttle(onWinSize, options.throttle || 100));
 	};
 
 	/**
@@ -4651,49 +4671,52 @@ $(document).ready(function(){
 }( jQuery ));
 ;(function($) {
 
+  var scrollFireEventsHandled = false;
+
   // Input: Array of JSON objects {selector, offset, callback}
-
   Materialize.scrollFire = function(options) {
+    var onScroll = function() {
+      var windowScroll = window.pageYOffset + window.innerHeight;
 
-    var didScroll = false;
+      for (var i = 0 ; i < options.length; i++) {
+        // Get options from each line
+        var value = options[i];
+        var selector = value.selector,
+            offset = value.offset,
+            callback = value.callback;
 
-    window.addEventListener("scroll", function() {
-      didScroll = true;
-    });
+        var currentElement = document.querySelector(selector);
+        if ( currentElement !== null) {
+          var elementOffset = currentElement.getBoundingClientRect().top + window.pageYOffset;
 
-    // Rate limit to 100ms
-    setInterval(function() {
-      if(didScroll) {
-          didScroll = false;
-
-          var windowScroll = window.pageYOffset + window.innerHeight;
-
-          for (var i = 0 ; i < options.length; i++) {
-            // Get options from each line
-            var value = options[i];
-            var selector = value.selector,
-                offset = value.offset,
-                callback = value.callback;
-
-            var currentElement = document.querySelector(selector);
-            if ( currentElement !== null) {
-              var elementOffset = currentElement.getBoundingClientRect().top + window.pageYOffset;
-
-              if (windowScroll > (elementOffset + offset)) {
-                if (value.done !== true) {
-                  if (typeof(callback) === 'function') {
-                    callback.call(this, currentElement);
-                  } else if (typeof(callback) === 'string') {
-                    var callbackFunc = new Function(callback);
-                    callbackFunc(currentElement);
-                  }
-                  value.done = true;
-                }
+          if (windowScroll > (elementOffset + offset)) {
+            if (value.done !== true) {
+              if (typeof(callback) === 'function') {
+                callback.call(this, currentElement);
+              } else if (typeof(callback) === 'string') {
+                var callbackFunc = new Function(callback);
+                callbackFunc(currentElement);
               }
+              value.done = true;
             }
           }
+        }
       }
-    }, 100);
+    };
+
+
+    var throttledScroll = Materialize.throttle(function() {
+      onScroll();
+    }, options.throttle || 100);
+
+    if (!scrollFireEventsHandled) {
+      window.addEventListener("scroll", throttledScroll);
+      window.addEventListener("resize", throttledScroll);
+      scrollFireEventsHandled = true;
+    }
+
+    // perform a scan once, after current execution context, and after dom is ready
+    setTimeout(throttledScroll, 0);
   };
 
 })(jQuery);
@@ -7340,7 +7363,7 @@ Picker.extend( 'pickadate', DatePicker )
 
       return this.each(function() {
 
-        var images, offset, center, pressed, dim, count,
+        var images, item_width, offset, center, pressed, dim, count,
             reference, referenceY, amplitude, target, velocity,
             xform, frame, timestamp, ticker, dragged, vertical_dragged;
         var $indicators = $('<ul class="indicators"></ul>');
@@ -7396,7 +7419,9 @@ Picker.extend( 'pickadate', DatePicker )
             }
 
             // Handle clicks on indicators.
-            $indicator.click(function () {
+            $indicator.click(function (e) {
+              e.stopPropagation();
+
               var index = $(this).index();
               cycleTo(index);
             });
@@ -7711,8 +7736,16 @@ Picker.extend( 'pickadate', DatePicker )
         });
 
 
-
-        window.onresize = scroll;
+        $(window).on('resize.carousel', function() {
+          if (options.full_width) {
+            item_width = view.find('.carousel-item').first().innerWidth();
+            dim = item_width * 2 + options.padding;
+            offset = center * 2 * item_width;
+            target = offset;
+          } else {
+            scroll();
+          }
+        });
 
         setupEvents();
         scroll(offset);
@@ -7721,7 +7754,7 @@ Picker.extend( 'pickadate', DatePicker )
           if (n === undefined) {
             n = 1;
           }
-          target = offset + dim * n;
+          target = (dim * Math.round(offset / dim)) + (dim * n);
           if (offset !== target) {
             amplitude = target - offset;
             timestamp = Date.now();
@@ -7733,7 +7766,7 @@ Picker.extend( 'pickadate', DatePicker )
           if (n === undefined) {
             n = 1;
           }
-          target = offset - dim * n;
+          target = (dim * Math.round(offset / dim)) - (dim * n);
           if (offset !== target) {
             amplitude = target - offset;
             timestamp = Date.now();
